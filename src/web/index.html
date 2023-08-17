@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            body {
+                background: #343434;
+                margin: 0;
+            }
+
+            canvas {
+                height: 100%;
+                left: 0;
+                position: fixed;
+                top: 0;
+                width: 100%;
+            }
+        </style>
+        <title>Cubic Crafter</title>
+    </head>
+    <body>
+        <script>
+            class DepthPass extends POSTPROCESSING.RenderPass {
+                constructor(scene, camera, material) {
+                    super(scene, camera, material);
+                }
+
+                render(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest) {
+                    renderer.getContext().depthFunc(renderer.getContext().LEQUAL);
+                    super.render(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest);
+                }
+            }
+
+            class MainRenderPass extends POSTPROCESSING.RenderPass {
+                constructor(scene, camera) {
+                    super(scene, camera);
+                    
+                    this.clear = false;
+                }
+
+                render(renderer, inputBuffer, outputBuffer, deltaTime, stencilTest) {
+                    const context = renderer.getContext();
+
+                    context.depthFunc(context.EQUAL);
+                    super.render.apply(this, [renderer, inputBuffer, outputBuffer, deltaTime, stencilTest]);
+                    context.depthFunc(context.LEQUAL);
+                }
+            }
+
+            function initPostProcessing(scene, camera, renderer) {
+                renderer.autoClear = false;
+                renderer.autoClearDepth = false;
+
+                const composer = new POSTPROCESSING.EffectComposer(renderer);
+                const depthPass = new DepthPass(scene, camera, new THREE.MeshPhongMaterial());
+
+                depthPass.renderToScreen = true;
+                composer.addPass(depthPass);
+
+                const mainRenderPass = new MainRenderPass(scene, camera);
+                mainRenderPass.renderToScreen = true;
+                composer.addPass(mainRenderPass);
+
+                return composer;
+            }
+        </script>
+        <script>
+            class Block {
+                static types = {
+                    stone: {
+                        color: 0x11ff11
+                    }
+                };
+
+                constructor(type, position) {
+                    const geometry = new THREE.BoxGeometry(1, 1, 1);
+                    const material = new THREE.MeshPhongMaterial({ color: type.color });
+                    const cube = new THREE.Mesh(geometry, material);
+                    cube.position.set(...position.toArray());
+
+                    this.cube = cube;
+                }
+
+                add() {
+                    scene.add(this.cube);
+                }
+
+                remove() {
+                    scene.remove(this.cube);
+                }
+            }
+
+            class Chunk {
+                static chunks = {};
+                static current = null;
+                static size = 6;
+                static distance = 3;
+
+                static clampToNearestChunk(x, z) {
+                    return {
+                        x: Math.round(x / Chunk.size) * Chunk.size,
+                        z: Math.round(z / Chunk.size) * Chunk.size
+                    };
+                }
+
+                constructor(x, z) {
+                    const { x: cx, z: cz } = Chunk.clampToNearestChunk(x, z);
+
+                    this.x = cx;
+                    this.z = cz;
+                    
+                    this.minX = cx;
+                    this.maxX = cx + Chunk.size;
+                    this.minZ = cz;
+                    this.maxZ = cz + Chunk.size;
+
+                    const chunk = Chunk.chunks[cx + "." + cz];
+                    if (chunk) return chunk;
+
+                    const blocks = [];
+
+                    for (let x = cx; x < cx + Chunk.size; x++) for (let z = cz; z < cz + Chunk.size; z++) {
+                        const maxY = this.blockHeight(x, z);
+
+                        const block = new Block(Block.types.stone, new THREE.Vector3(x, maxY, z));
+                        blocks.push(block);
+
+                        for (let y = 0; y < maxY; y++) {
+                            
+                        }
+                    }
+
+                    this.blocks = blocks;
+
+                    Chunk.chunks[cx + "." + cz] = this;
+                }
+
+                contains(x, z) {
+                    return x >= this.minX && x <= this.maxX && z >= this.minZ && z <= this.maxZ;
+                }
+
+                blockHeight(x, z) {
+                    return Math.round(noise.simplex2(x / 64, z / 64) * 10);
+                }
+
+                load() {
+                    this.blocks.map(block => block.add());
+                }
+
+                unload() {
+                    this.blocks.map(block => block.remove());
+                }
+            }
+
+            const scene = new THREE.Scene();
+
+            const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, .1, 1000);
+            camera.rotation.order = "YXZ";
+            camera.position.y = 15;
+            camera.position.z = 15;
+
+            const keys = {};
+
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(innerWidth, innerHeight);
+            renderer.setClearColor(0x75c4e3, 1);
+            document.body.appendChild(renderer.domElement);
+
+            const composer = initPostProcessing(scene, camera, renderer);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(0, 100, 0);
+            scene.add(directionalLight);
+
+            noise.seed(Math.random());
+
+            setInterval(() => {
+                
+            }, 100);
+
+            const player = {
+                gamemode: 1,
+                direction: new THREE.Vector3(),
+                speed: .25,
+                jump: false,
+                jumping: false,
+                jumpHeight: .5,
+                gravity: .005,
+                vy: 0
+            };
+
+            function loop() {
+                requestAnimationFrame(loop);
+
+                if (keys["w"]) camera.position.add(player.direction.normalize().setComponent(1, 0).multiplyScalar(player.speed));
+                if (keys["a"]) camera.translateX(-player.speed);
+                if (keys["s"]) camera.position.sub(player.direction.normalize().setComponent(1, 0).multiplyScalar(player.speed));
+                if (keys["d"]) camera.translateX(player.speed);
+
+                if (keys[" "]) {
+                    if (player.gamemode === 0) {
+                        if (player.jump) {
+                            player.jump = false;
+                            player.jumping = true;
+                        }
+                    } else camera.position.y += player.speed;
+                }
+
+                const x = Math.round(camera.position.x);
+                const y = camera.position.y;
+                const z = Math.round(camera.position.z);
+
+                const blockY = Chunk.current ? Chunk.current.blockHeight(x, z) + 2 : 0;
+
+                if (player.gamemode === 0) {
+                    if (player.jumping) {
+                        player.vy += player.gravity * 2;
+
+                        if (camera.position.y > blockY + player.jumpHeight) player.jumping = false;
+                    }
+                    
+                    player.vy -= player.gravity;
+
+                    camera.position.y += player.vy;
+                } else {
+                    if (keys["shift"]) camera.position.y -= player.speed;
+                }
+                if (camera.position.y < blockY) {
+                    player.jump = true;
+                    player.jumping = false;
+                    player.vy = 0;
+                    camera.position.y = blockY;
+                }
+
+                const size = Chunk.distance / 2 * Chunk.size;
+
+                for (let cx = x - size; cx < x + size; cx += Chunk.size) for (let cz = z - size; cz < z + size; cz += Chunk.size) {
+                    const chunk = new Chunk(cx, cz);
+                    chunk.load();
+
+                    if (chunk.contains(x, z)) Chunk.current = chunk;
+                }
+
+                for (let c in Chunk.chunks) {
+                    c = Chunk.chunks[c];
+
+                    if (Math.sqrt(Math.pow(x - c.x, 2) + Math.pow(z - c.z, 2)) > Chunk.size * Chunk.distance) c.unload();
+                }
+
+                composer.render();
+            }
+
+            loop();
+
+            function mouse(event) {
+                camera.rotation.x = THREE.MathUtils.clamp(camera.rotation.x - event.movementY * .005, -1.5, 1.5);
+                camera.rotation.y -= event.movementX * .005;
+
+                camera.getWorldDirection(player.direction);
+            }
+
+            document.addEventListener("click", () => document.body.requestPointerLock());
+
+            document.addEventListener("pointerlockchange", () => {
+                if (document.pointerLockElement === document.body) document.addEventListener("mousemove", mouse, false);
+                else document.removeEventListener("mousemove", mouse, false);
+            }, false);
+
+            addEventListener("resize", () => {
+                camera.aspect = innerWidth / innerHeight;
+                camera.updateProjectionMatrix();
+                
+                renderer.setSize(innerWidth, innerHeight);
+            });
+
+            addEventListener("keydown", event => {
+                const key = event.key.toLowerCase();
+
+                keys[key] = true;
+
+                if (event.ctrlKey && key === "r") {
+                    event.preventDefault();
+                    refresh();
+                }
+            });
+
+            addEventListener("keyup", event => delete keys[event.key.toLowerCase()]);
+        </script>
+    </body>
+</html>
