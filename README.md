@@ -8,4 +8,4 @@ Before building, make sure to edit [`main.cpp`](src/main.cpp) and change the pat
 
 ## Credits
 
-Cubic Crafter was made possible with [webview](https://github.com/webview/webview), [webview2](https://developer.microsoft.com/en-us/microsoft-edge/webview2), [three.js](https://github.com/mrdoob/three.js), [postprocessing](https://github.com/pmndrs/postprocessing), and [noise.js](https://github.com/josephg/noisejs).
+Cubic Crafter was made possible with [webview](https://github.com/webview/webview), [webview2](https://developer.microsoft.com/en-us/microsoft-edge/webview2), [babylon.js](https://github.com/BabylonJS/Babylon.js), and [noise.js](https://github.com/josephg/noisejs).

@@ -18,8 +18,7 @@ string html() {
 
 vector<string> javascripts() {
     vector<string> javascripts = {
-        "three.js",
-        "postProcessing.js",
+        "babylon.js",
         "noise.js"
     };
 

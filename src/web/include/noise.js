@@ -1,4 +1,5 @@
-(function(global){
+function createNoise(seed) {
+  const noise = (function(global){
     var module = global.noise = {};
   
     function Grad(x, y, z) {
@@ -14,8 +15,8 @@
     };
   
     var grad3 = [new Grad(1,1,0),new Grad(-1,1,0),new Grad(1,-1,0),new Grad(-1,-1,0),
-                 new Grad(1,0,1),new Grad(-1,0,1),new Grad(1,0,-1),new Grad(-1,0,-1),
-                 new Grad(0,1,1),new Grad(0,-1,1),new Grad(0,1,-1),new Grad(0,-1,-1)];
+                new Grad(1,0,1),new Grad(-1,0,1),new Grad(1,0,-1),new Grad(-1,0,-1),
+                new Grad(0,1,1),new Grad(0,-1,1),new Grad(0,1,-1),new Grad(0,-1,-1)];
   
     var p = [151,160,137,91,90,15,
     131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
@@ -253,7 +254,7 @@
       return lerp(
           lerp(n00, n10, u),
           lerp(n01, n11, u),
-         fade(y));
+        fade(y));
     };
   
     
@@ -288,7 +289,14 @@
           lerp(
             lerp(n010, n110, u),
             lerp(n011, n111, u), w),
-         v);
+        v);
     };
+
+    return module;
   
-  })(this);
+  })({});
+
+  noise.seed(Math.random());
+
+  return noise;
+}
